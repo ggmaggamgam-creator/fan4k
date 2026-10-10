@@ -5,7 +5,7 @@ from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import g4f
 
-TOKEN = "8913122681:AAGpY0WQEmGCDdrNjke-djWJfjoAJ0lYjX8"
+TOKEN = "8913122681:AAHJECRiOevBLLHw9xsbPJUdVlQUV5aQPRk"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
