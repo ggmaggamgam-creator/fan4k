@@ -7,7 +7,7 @@ from aiogram.filters import Command
 import g4f
 
 # Твой токен Telegram-бота
-TOKEN = "8913122681:AAGpY0WQEmGCDdrNjke-djWJfjoAJ0lYjX8"
+TOKEN = "8913122681:AAHJECRiOevBLLHw9xsbPJUdVlQUV5aQPRk"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
