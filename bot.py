@@ -7,7 +7,7 @@ from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 
 # === 1. ТВОЙ ТОКЕН И ИНИЦИАЛИЗАЦИЯ ===
 # Вставь сюда свой токен от BotFather (в кавычках)
-BOT_TOKEN = "ТВОЙ_ТОКЕН_БОТА" 
+BOT_TOKEN = "8913122681:AAHJECRiOevBLLHw9xsbPJUdVlQUV5aQPRk" 
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
