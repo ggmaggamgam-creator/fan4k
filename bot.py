@@ -93,28 +93,31 @@ async def handle_text(message: types.Message):
         await message.answer("Произошла небольшая задержка сети. Попробуй отправить сообщение ещё раз!")
 
 
-# --- ВЕБ-СЕРВЕР ДЛЯ RENDER И CRON-JOB (ЧТОБЫ БОТ РАБОТАЛ 24/7) ---
+# --- ВЕБ-СЕРВЕР ДЛЯ RENDER И CRON-JOB ---
 async def handle_ping(request):
     return web.Response(text="OK")
 
-
-async def main():
-    # Запускаем локальный мини-сервер для пингов от cron-job.org
+async def start_web_server():
     app = web.Application()
     app.router.add_get("/", handle_ping)
-
     runner = web.AppRunner(app)
     await runner.setup()
-
     port = int(os.environ.get("PORT", 8080))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-
-    print("Веб-сервер и бот успешно запущены!")
+    print(f"Веб-сервер успешно запущен на порту {port}")
     
-    # Запуск бота
-    await dp.start_polling(bot)
+    # Держим сервер активным
+    while True:
+        await asyncio.sleep(3600)
 
+async def main():
+    print("Бот и веб-сервер запускаются...")
+    # Запускаем поллинг бота и веб-сервер одновременно
+    await asyncio.gather(
+        dp.start_polling(bot),
+        start_web_server()
+    )
 
 if __name__ == "__main__":
     asyncio.run(main())
