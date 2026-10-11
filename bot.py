@@ -1,68 +1,105 @@
 import asyncio
+import logging
 import os
 from aiohttp import web
-from aiogram import Bot, Dispatcher, F
+from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
-from g4f.client import Client
+import g4f
 
-# === 1. ТОКЕН И ИНИЦИАЛИЗАЦИЯ ===
-BOT_TOKEN = "8913122681:AAHJECRiOevBLLHw9xsbPJUdVlQUV5aQPRk"  # Твой токен от BotFather
+# Твой токен Telegram-бота
+TOKEN = "8913122681:AAGpY0WQEmGCDdrNjke-djWJfjoAJ0lYjX8"
 
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Клиент g4f для работы с ChatGPT
-g4f_client = Client()
+logging.basicConfig(level=logging.INFO)
 
-# Кнопка «Очистить память»
-main_kb = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton(text="🧹 Очистить память")]],
-    resize_keyboard=True
-)
-
-# === 2. ХЕНДЛЕРЫ БОТА ===
+# Хранилище истории сообщений для каждого пользователя
+user_histories = {}
 
 @dp.message(Command("start"))
-async def cmd_start(message: Message):
+async def cmd_start(message: types.Message):
+    user_histories[message.from_user.id] = []
     await message.answer(
-        "Привет! Я твой бот на базе g4f. Задай мне любой вопрос!",
-        reply_markup=main_kb
+        "Привет! Твой бот полностью запущен и работает без лимитов 🚀✨\n\n"
+        "• Пиши любые вопросы и общайся с памятью сколько угодно\n"
+        "• Команда /draw <описание> создаст для тебя крутую картинку\n"
+        "• Команда /clear очистит историю диалога"
     )
 
-# Обработка кнопки «Очистить память»
-@dp.message(F.text == "🧹 Очистить память")
-async def clear_memory(message: Message):
-    # Здесь можно добавить очистку истории, если она у тебя сохранялась в коде
-    await message.answer("Память успешно очищена!", reply_markup=main_kb)
+@dp.message(Command("clear"))
+async def cmd_clear(message: types.Message):
+    user_histories[message.from_user.id] = []
+    await message.answer("🧹 История нашего разговора полностью очищена!")
 
-# Основной обработчик сообщений (запросы к g4f ChatGPT)
-@dp.message()
-async def handle_message(message: Message):
-    user_text = message.text
+@dp.message(Command("draw"))
+async def cmd_draw(message: types.Message):
+    prompt = message.text.replace("/draw", "").strip()
     
-    # Показываем пользователю, что бот «печатает»
-    await bot.send_chat_action(chat_id=message.chat.id, action="typing")
-    
+    if not prompt:
+        await message.answer("Пожалуйста, напиши описание после команды, например: /draw кот в космосе")
+        return
+
+    await message.bot.send_chat_action(chat_id=message.chat.id, action="upload_photo")
+
     try:
-        # Отправляем запрос через g4f (используем gpt-4o или gpt-4)
-        response = g4f_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": user_text}]
+        image_response = await asyncio.to_thread(
+            g4f.ImageGeneration.create,
+            prompt=prompt,
+            model=g4f.models.gemini_pro
         )
-        ai_reply = response.choices[0].message.content
-        await message.answer(ai_reply)
+        
+        if image_response:
+            await message.answer_photo(image_response, caption=f"🎨 Твой запрос: {prompt}")
+        else:
+            await message.answer("Не удалось сгенерировать картинку. Попробуй другое описание!")
+
     except Exception as e:
-        # Если вдруг бесплатный провайдер g4f временно сбоит
-        await message.answer(f"Произошла ошибка при обращении к ИИ: {e}")
+        print(f"Ошибка генерации картинки: {e}")
+        try:
+            fallback_desc = await asyncio.to_thread(
+                g4f.ChatCompletion.create,
+                model=g4f.models.default,
+                messages=[{"role": "user", "content": f"Опиши подробно картину для генерации: {prompt}"}]
+            )
+            await message.answer(f"🎨 Идея для рисунка:\n\n{fallback_desc}")
+        except:
+            await message.answer("Произошла ошибка при создании картинки. Попробуй еще раз!")
+
+@dp.message(F.text)
+async def handle_text(message: types.Message):
+    user_id = message.from_user.id
+    
+    if user_id not in user_histories:
+        user_histories[user_id] = []
+
+    user_histories[user_id].append({"role": "user", "content": message.text})
+
+    await message.bot.send_chat_action(chat_id=message.chat.id, action="typing")
+
+    try:
+        response = await asyncio.to_thread(
+            g4f.ChatCompletion.create,
+            model=g4f.models.default,
+            messages=user_histories[user_id]
+        )
+
+        user_histories[user_id].append({"role": "assistant", "content": response})
+
+        await message.answer(response)
+
+    except Exception as e:
+        print(f"Ошибка запроса: {e}")
+        await message.answer("Произошла небольшая задержка сети. Попробуй отправить сообщение ещё раз!")
 
 
-# === 3. ВЕБ-СЕРВЕР ДЛЯ RENDER И CRON-JOB (ДЛЯ 24/7) ===
+# --- ВЕБ-СЕРВЕР ДЛЯ RENDER И CRON-JOB (ЧТОБЫ БОТ РАБОТАЛ 24/7) ---
 async def handle_ping(request):
     return web.Response(text="OK")
 
 
 async def main():
+    # Запускаем локальный мини-сервер для пингов от cron-job.org
     app = web.Application()
     app.router.add_get("/", handle_ping)
 
@@ -73,7 +110,9 @@ async def main():
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
 
-    print("Веб-сервер и бот с g4f успешно запущены!")
+    print("Веб-сервер и бот успешно запущены!")
+    
+    # Запуск бота
     await dp.start_polling(bot)
 
 
