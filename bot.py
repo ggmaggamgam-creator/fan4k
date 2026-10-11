@@ -7,7 +7,7 @@ from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from g4f.client import Client
 
 # === 1. ТОКЕН И ИНИЦИАЛИЗАЦИЯ ===
-BOT_TOKEN = "ТВОЙ_ТОКЕН_БОТА"  # Твой токен от BotFather
+BOT_TOKEN = "8913122681:AAHJECRiOevBLLHw9xsbPJUdVlQUV5aQPRk"  # Твой токен от BotFather
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
